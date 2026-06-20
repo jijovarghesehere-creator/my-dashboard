@@ -13,7 +13,7 @@ function renderShell() {
       <header class="header">
         <div class="header-main">
           <p class="eyebrow">Local dashboard</p>
-          <h1 id="location-title">Finding your location…</h1>
+          <h1 id="location-title">hello Olivia</h1>
           <p id="location-subtitle" class="subtitle"></p>
           <form id="location-form" class="location-form hidden" hidden>
             <label class="location-label" for="location-input">Enter a city or place</label>
