@@ -108,6 +108,26 @@ h2 {
   gap: 0.5rem;
 }
 
+.location-suggestions {
+  margin: 6px 0 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.9);
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 0.5rem;
+}
+.location-suggestions .suggestion-item {
+  padding: 8px 10px;
+  cursor: pointer;
+  color: #e8edf5;
+}
+.location-suggestions .suggestion-item.selected,
+.location-suggestions .suggestion-item:hover {
+  background: rgba(125, 211, 252, 0.08);
+}
+
 .location-form input {
   flex: 1;
   min-width: 0;

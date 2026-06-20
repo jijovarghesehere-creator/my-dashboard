@@ -1,66 +1,7 @@
 export function getBrowserLocation() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-      console.debug('Geolocation API not available on navigator')
       reject(new Error('Geolocation is not supported by your browser.'))
-      return
-    }
-
-    // If the Permissions API is available, query the permission first to provide
-    // a clearer error message and avoid triggering a prompt in some browsers.
-    if (navigator.permissions && navigator.permissions.query) {
-      navigator.permissions
-        .query({ name: 'geolocation' })
-        .then((status) => {
-          console.debug('Geolocation permission state:', status.state)
-          // If denied, reject early with a clear message
-          if (status.state === 'denied') {
-            reject(new Error('Location access was denied. Allow location in your browser settings.'))
-            return
-          }
-
-          // otherwise, request the location which may prompt the user
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              resolve({
-                lat: position.coords.latitude,
-                lon: position.coords.longitude,
-              })
-            },
-            (error) => {
-              const messages = {
-                1: 'Location access was denied. Allow location in your browser settings.',
-                2: 'Your location could not be determined.',
-                3: 'Location request timed out. Try again.',
-              }
-              console.debug('Geolocation error', error)
-              reject(new Error(messages[error.code] ?? 'Could not get your location.'))
-            },
-            { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 },
-          )
-        })
-        .catch((err) => {
-          console.debug('Permissions API query failed', err)
-          // Fallback to directly requesting geolocation
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              resolve({
-                lat: position.coords.latitude,
-                lon: position.coords.longitude,
-              })
-            },
-            (error) => {
-              const messages = {
-                1: 'Location access was denied. Allow location in your browser settings.',
-                2: 'Your location could not be determined.',
-                3: 'Location request timed out. Try again.',
-              }
-              console.debug('Geolocation error', error)
-              reject(new Error(messages[error.code] ?? 'Could not get your location.'))
-            },
-            { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 },
-          )
-        })
       return
     }
 
@@ -77,7 +18,6 @@ export function getBrowserLocation() {
           2: 'Your location could not be determined.',
           3: 'Location request timed out. Try again.',
         }
-        console.debug('Geolocation error (no Permissions API)', error)
         reject(new Error(messages[error.code] ?? 'Could not get your location.'))
       },
       { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 },
@@ -147,4 +87,24 @@ export async function searchLocation(query) {
     lon: Number(match.lon),
     place: parsePlace(match),
   }
+}
+
+export async function searchSuggestions(query, limit = 5) {
+  const trimmed = query.trim()
+  if (!trimmed) return []
+
+  const params = new URLSearchParams({
+    q: trimmed,
+    format: 'json',
+    limit: String(limit),
+  })
+
+  const response = await fetch(`/api/nominatim/search?${params}`)
+  if (!response.ok) return []
+  const results = await response.json()
+  return results.map((r) => ({
+    label: r.display_name,
+    lat: Number(r.lat),
+    lon: Number(r.lon),
+  }))
 }

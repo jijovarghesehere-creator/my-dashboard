@@ -1,6 +1,6 @@
 import './style.css'
 import { getBrowserLocation, reverseGeocode, searchLocation } from './location.js'
-import { fetchWeather, formatForecastDay, weatherIcon } from './weather.js'
+import { fetchWeather, formatForecastDay, weatherIcon, fetchTides } from './weather.js'
 import { fetchLocalNews, formatNewsDate } from './news.js'
 
 const STORAGE_KEY = 'my-dashboard-manual-location'
@@ -28,6 +28,7 @@ function renderShell() {
               />
               <button id="location-submit" type="submit" class="location-submit">Go</button>
             </div>
+            <ul id="location-suggestions" class="location-suggestions" hidden></ul>
             <button id="use-geo-btn" type="button" class="use-geo-btn">Use my current location</button>
           </form>
         </div>
@@ -49,6 +50,7 @@ function renderShell() {
             <span id="weather-updated" class="muted"></span>
           </div>
           <div id="weather-content" class="weather-content loading">Loading weather…</div>
+          <div id="tide-content" class="tide-content loading">Loading tides…</div>
         </section>
 
         <section class="card news-card" aria-labelledby="news-heading">
@@ -58,11 +60,27 @@ function renderShell() {
           </div>
           <div id="news-content" class="news-content loading">Loading news…</div>
         </section>
+        
+        <section class="card transit-card" aria-labelledby="transit-heading">
+          <div class="card-header">
+            <h2 id="transit-heading">Transit nearby</h2>
+          </div>
+          <div id="transit-content" class="transit-content loading">Loading transit…</div>
+        </section>
       </main>
 
       <p id="status" class="status" role="status" aria-live="polite"></p>
     </div>
   `
+}
+
+// debounce helper
+function debounce(fn, wait = 300) {
+  let t
+  return (...args) => {
+    clearTimeout(t)
+    t = setTimeout(() => fn(...args), wait)
+  }
 }
 
 function setStatus(message, isError = false) {
@@ -114,11 +132,11 @@ function renderWeather(data) {
 
   return `
     <div class="weather-current">
-      <div class="weather-main">
+        <div class="weather-main">
         <span class="weather-icon" aria-hidden="true">${weatherIcon(current.weather_code)}</span>
         <div>
-          <p class="temperature">${Math.round(current.temperature_2m)}°</p>
-          <p class="feels-like">Feels like ${Math.round(current.apparent_temperature)}°</p>
+          <p class="temperature">${Math.round(current.temperature_2m)}°C / ${Math.round(current.temperature_2m * 9/5 + 32)}°F</p>
+          <p class="feels-like">Feels like ${Math.round(current.apparent_temperature)}°C</p>
         </div>
       </div>
       <ul class="weather-stats">
@@ -240,6 +258,50 @@ async function loadDashboard({ mode = 'auto', query = '' } = {}) {
       fetchLocalNews(place.searchQuery),
     ])
 
+    // Fetch tides separately (don't block weather/news on tide failures)
+    fetchTides(lat, lon)
+      .then((tides) => {
+        const tideContent = document.querySelector('#tide-content')
+        if (!tideContent) return
+        tideContent.classList.remove('loading')
+        if (!tides) {
+          tideContent.innerHTML = '<p class="empty">Tide data unavailable.</p>'
+          return
+        }
+        tideContent.innerHTML = `
+          <div class="tide-block">
+            <div class="tide-item"><strong>High tide</strong><div>${new Date(tides.high.time).toLocaleString()} — ${tides.high.height.toFixed(2)} m</div></div>
+            <div class="tide-item"><strong>Low tide</strong><div>${new Date(tides.low.time).toLocaleString()} — ${tides.low.height.toFixed(2)} m</div></div>
+          </div>
+        `
+      })
+      .catch(() => {
+        const tideContent = document.querySelector('#tide-content')
+        if (tideContent) tideContent.innerHTML = '<p class="empty">Tide data unavailable.</p>'
+      })
+
+    // Fetch nearby transit stops (non-blocking)
+    import('./weather.js').then(({ fetchTransit }) => {
+      fetchTransit(lat, lon)
+        .then((stops) => {
+          const transitContent = document.querySelector('#transit-content')
+          if (!transitContent) return
+          transitContent.classList.remove('loading')
+          if (!stops || stops.length === 0) {
+            transitContent.innerHTML = '<p class="empty">No nearby transit stops found.</p>'
+            return
+          }
+          const items = stops
+            .map((s) => `<li><strong>${escapeHtml(s.name)}</strong> · ${escapeHtml(s.type)} · ${s.distance_m} m</li>`)
+            .join('')
+          transitContent.innerHTML = `<ul class="transit-list">${items}</ul>`
+        })
+        .catch(() => {
+          const transitContent = document.querySelector('#transit-content')
+          if (transitContent) transitContent.innerHTML = '<p class="empty">Transit data unavailable.</p>'
+        })
+    })
+
     weatherContent.classList.remove('loading')
     newsContent.classList.remove('loading')
     weatherContent.innerHTML = renderWeather(weather)
@@ -299,6 +361,77 @@ function bindEvents() {
     event.preventDefault()
     const query = document.querySelector('#location-input').value
     loadDashboard({ mode: 'manual', query })
+  })
+
+  // Autocomplete suggestions
+  const input = document.querySelector('#location-input')
+  const suggestions = document.querySelector('#location-suggestions')
+  let selectedIndex = -1
+
+  function closeSuggestions() {
+    suggestions.hidden = true
+    suggestions.innerHTML = ''
+    selectedIndex = -1
+  }
+
+  function openSuggestions(items) {
+    suggestions.innerHTML = items
+      .map((it, i) => `<li role="option" data-index="${i}" class="suggestion-item">${escapeHtml(it.label)}</li>`)
+      .join('')
+    suggestions.hidden = items.length === 0
+    selectedIndex = -1
+  }
+
+  async function fetchAndShow(q) {
+    if (!q) { closeSuggestions(); return }
+    try {
+      const res = await fetch(`/api/nominatim/search?q=${encodeURIComponent(q)}&format=json&limit=5`)
+      if (!res.ok) { closeSuggestions(); return }
+      const data = await res.json()
+      const items = data.map((d) => ({ label: d.display_name, lat: d.lat, lon: d.lon }))
+      openSuggestions(items)
+    } catch (e) {
+      closeSuggestions()
+    }
+  }
+
+  const debounced = debounce((e) => fetchAndShow(e.target.value), 300)
+  input.addEventListener('input', debounced)
+
+  input.addEventListener('keydown', (e) => {
+    const items = suggestions.querySelectorAll('.suggestion-item')
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      selectedIndex = Math.min(selectedIndex + 1, items.length - 1)
+      items.forEach((it, i) => it.classList.toggle('selected', i === selectedIndex))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      selectedIndex = Math.max(selectedIndex - 1, 0)
+      items.forEach((it, i) => it.classList.toggle('selected', i === selectedIndex))
+    } else if (e.key === 'Enter') {
+      if (selectedIndex >= 0) {
+        e.preventDefault()
+        items[selectedIndex].click()
+      }
+    } else if (e.key === 'Escape') {
+      closeSuggestions()
+    }
+  })
+
+  suggestions.addEventListener('click', (e) => {
+    const li = e.target.closest('.suggestion-item')
+    if (!li) return
+    const index = Number(li.dataset.index)
+    // get the label and submit search
+    const label = li.textContent
+    input.value = label
+    closeSuggestions()
+    loadDashboard({ mode: 'manual', query: label })
+  })
+
+  // close on outside click
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#location-form')) closeSuggestions()
   })
 }
 
