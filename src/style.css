@@ -1,0 +1,390 @@
+:root {
+  color-scheme: dark;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #e8edf5;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(168, 85, 247, 0.16), transparent 24%),
+    linear-gradient(180deg, #0b1220 0%, #111827 100%);
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+.dashboard {
+  width: min(1120px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  color: #7dd3fc;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  line-height: 1.1;
+}
+
+h2 {
+  font-size: 1.125rem;
+}
+
+.subtitle {
+  margin-top: 0.5rem;
+  color: #94a3b8;
+}
+
+.header-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.header-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.location-form {
+  margin-top: 1rem;
+  max-width: 28rem;
+}
+
+.location-form.hidden {
+  display: none;
+}
+
+.location-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.location-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.location-form input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+  color: inherit;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+}
+
+.location-form input:focus {
+  outline: 2px solid rgba(125, 211, 252, 0.45);
+  outline-offset: 1px;
+}
+
+.location-submit {
+  border: 1px solid rgba(125, 211, 252, 0.45);
+  background: rgba(14, 116, 144, 0.35);
+  color: inherit;
+  border-radius: 0.75rem;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.location-submit:hover:not(:disabled) {
+  background: rgba(14, 116, 144, 0.55);
+}
+
+.location-submit:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.use-geo-btn,
+.text-btn {
+  margin-top: 0.55rem;
+  border: none;
+  background: none;
+  color: #7dd3fc;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.text-btn {
+  margin-top: 0;
+  font-size: 0.9rem;
+}
+
+.use-geo-btn:hover,
+.text-btn:hover {
+  color: #bae6fd;
+}
+
+.hidden {
+  display: none;
+}
+
+.clock {
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  text-align: right;
+}
+
+.refresh-btn {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.65);
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(125, 211, 252, 0.45);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+.card {
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.35);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.muted {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.loading,
+.empty {
+  color: #94a3b8;
+}
+
+.weather-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.weather-current {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.weather-main {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.weather-icon {
+  font-size: 3.5rem;
+  line-height: 1;
+}
+
+.temperature {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.feels-like {
+  color: #94a3b8;
+  margin-top: 0.25rem;
+}
+
+.weather-stats {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.weather-stats li {
+  background: rgba(30, 41, 59, 0.75);
+  border-radius: 0.9rem;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.weather-stats span {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.forecast {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.forecast-day {
+  display: grid;
+  grid-template-columns: 3.5rem 2rem 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.forecast-label {
+  color: #cbd5e1;
+}
+
+.forecast-icon {
+  font-size: 1.25rem;
+}
+
+.forecast-temps {
+  text-align: right;
+  color: #94a3b8;
+}
+
+.forecast-temps strong {
+  color: #e2e8f0;
+}
+
+.news-content {
+  min-height: 320px;
+}
+
+.news-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.news-item + .news-item {
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.news-item a {
+  display: block;
+  padding: 0.95rem 0;
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.news-item a:hover .news-title {
+  color: #7dd3fc;
+}
+
+.news-title {
+  display: block;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.news-meta {
+  display: block;
+  margin-top: 0.35rem;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.status {
+  margin: 1rem 0 0;
+  min-height: 1.25rem;
+  color: #94a3b8;
+  font-size: 0.92rem;
+}
+
+.status.error {
+  color: #fca5a5;
+}
+
+@media (max-width: 860px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .header-meta {
+    align-items: flex-start;
+  }
+
+  .clock {
+    text-align: left;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
