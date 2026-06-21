@@ -122,8 +122,34 @@ export async function reverseGeocode(lat, lon) {
     zoom: '10',
   })
 
-  const response = await fetch(`/api/nominatim/reverse?${params}`)
-  if (!response.ok) throw new Error('Could not resolve your location name.')
+  // Try primary reverse endpoint via our API proxy
+  let response = await fetch(`/api/nominatim/reverse?${params}`)
+
+  // If 404 or other non-ok, try jsonv2 format which some nominatim instances prefer
+  if (!response.ok) {
+    try {
+      const paramsV2 = new URLSearchParams({ lat, lon, format: 'jsonv2', zoom: '10' })
+      const r2 = await fetch(`/api/nominatim/reverse?${paramsV2}`)
+      if (r2.ok) {
+        response = r2
+      }
+    } catch (e) {
+      // swallow and continue to throw below
+    }
+  }
+
+  if (!response.ok) {
+    // Try one direct attempt to upstream for debugging (may be blocked by CORS in browser)
+    try {
+      const direct = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`)
+      if (direct.ok) return parsePlace(await direct.json())
+    } catch (e) {
+      // ignore
+    }
+
+    const text = await response.text().catch(() => '')
+    throw new Error(`Could not resolve your location name (status ${response.status}): ${text}`)
+  }
 
   return parsePlace(await response.json())
 }
