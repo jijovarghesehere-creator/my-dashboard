@@ -1,7 +1,8 @@
 import './style.css'
 import { getBrowserLocation, getLocationWithFallback, reverseGeocode, searchLocation } from './location.js'
 import { fetchWeather, formatForecastDay, weatherIcon, fetchTides } from './weather.js'
-import { fetchLocalNews, formatNewsDate } from './news.js'
+import { fetchLocalNews, fetchGlobalNews, formatNewsDate } from './news.js'
+import { fetchApod } from './nasa.js'
 
 const STORAGE_KEY = 'my-dashboard-manual-location'
 const app = document.querySelector('#app')
@@ -53,12 +54,28 @@ function renderShell() {
           <div id="tide-content" class="tide-content loading">Loading tides…</div>
         </section>
 
+        <section class="card apod-card" aria-labelledby="apod-heading">
+          <div class="card-header">
+            <h2 id="apod-heading">NASA Picture of the Day</h2>
+            <span id="apod-updated" class="muted"></span>
+          </div>
+          <div id="apod-content" class="apod-content loading">Loading NASA picture…</div>
+        </section>
+
         <section class="card news-card" aria-labelledby="news-heading">
           <div class="card-header">
             <h2 id="news-heading">Local news</h2>
             <span id="news-updated" class="muted"></span>
           </div>
           <div id="news-content" class="news-content loading">Loading news…</div>
+        </section>
+        
+        <section class="card breaking-card" aria-labelledby="breaking-heading">
+          <div class="card-header">
+            <h2 id="breaking-heading">Breaking</h2>
+            <span id="breaking-updated" class="muted"></span>
+          </div>
+          <div id="breaking-content" class="breaking-content loading">Checking for breaking news…</div>
         </section>
         
         <section class="card transit-card" aria-labelledby="transit-heading">
@@ -171,6 +188,52 @@ function renderNews(articles) {
   return `<ul class="news-list">${items}</ul>`
 }
 
+function renderBreaking(articles) {
+  // Simple heuristic: look for keywords in title or source that indicate breaking/urgent
+  if (!articles || articles.length === 0) {
+    return '<p class="empty">No breaking news right now.</p>'
+  }
+
+  const items = articles
+    .map((article) => ({
+      ...article,
+      isBreaking: /\b(breaking|urgent|just in|alert|update|live)\b/i.test(article.title + ' ' + article.source),
+    }))
+    .filter((a) => a.isBreaking)
+    .slice(0, 5)
+    .map(
+      (a) => `
+        <li class="breaking-item">
+          <a href="${a.link}" target="_blank" rel="noopener noreferrer">
+            <span class="breaking-title">${escapeHtml(a.title)}</span>
+            <span class="breaking-meta">${escapeHtml(a.source)}${a.pubDate ? ` · ${formatNewsDate(a.pubDate)}` : ''}</span>
+          </a>
+        </li>
+      `,
+    )
+    .join('')
+
+  if (!items) return '<p class="empty">No breaking news right now.</p>'
+  return `<ul class="breaking-list">${items}</ul>`
+}
+
+function renderApod(apod) {
+  if (!apod) return '<p class="empty">NASA picture unavailable.</p>'
+
+  const media = apod.media_type === 'video'
+    ? `<div class="apod-media"><iframe src="${apod.url}" frameborder="0" allowfullscreen></iframe></div>`
+    : `<div class="apod-media"><img src="${apod.url}" alt="${escapeHtml(apod.title || 'NASA APOD')}"></div>`
+
+  const title = `<div class="apod-title"><strong>${escapeHtml(apod.title ?? '')}</strong></div>`
+  const explanation = `<div class="apod-explanation">${escapeHtml(apod.explanation ?? '')}</div>`
+
+  return `
+    ${media}
+    ${title}
+    ${explanation}
+  `
+}
+
 function escapeHtml(text) {
   return text
     .replaceAll('&', '&amp;')
@@ -270,9 +333,10 @@ async function loadDashboard({ mode = 'auto', query = '' } = {}) {
       if (sourceEl2) sourceEl2.textContent = ' · approximate location'
     }
 
-    const [weather, news] = await Promise.all([
+    const [weather, news, globalNews] = await Promise.all([
       fetchWeather(lat, lon),
       fetchLocalNews(place.searchQuery),
+      fetchGlobalNews(),
     ])
 
     // Fetch tides separately (don't block weather/news on tide failures)
@@ -319,10 +383,32 @@ async function loadDashboard({ mode = 'auto', query = '' } = {}) {
         })
     })
 
+    ;
+  // Fetch NASA APOD asynchronously (non-blocking)
+    (async () => {
+      try {
+        const apod = await fetchApod()
+        const apodContent = document.querySelector('#apod-content')
+        if (!apodContent) return
+        apodContent.classList.remove('loading')
+        apodContent.innerHTML = renderApod(apod)
+      } catch (e) {
+        const apodContent = document.querySelector('#apod-content')
+        if (apodContent) apodContent.innerHTML = '<p class="empty">NASA picture unavailable.</p>'
+      }
+    })()
+
     weatherContent.classList.remove('loading')
     newsContent.classList.remove('loading')
     weatherContent.innerHTML = renderWeather(weather)
     newsContent.innerHTML = renderNews(news)
+
+    // Render global breaking news (global feed) in the Breaking card
+    const breakingContent = document.querySelector('#breaking-content')
+    if (breakingContent) {
+      breakingContent.classList.remove('loading')
+      breakingContent.innerHTML = renderBreaking(globalNews)
+    }
 
     document.querySelector('#change-location-btn').hidden = false
     document.querySelector('#change-location-btn').classList.remove('hidden')

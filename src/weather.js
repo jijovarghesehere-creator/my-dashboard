@@ -67,27 +67,30 @@ export async function fetchTides(lat, lon) {
     timezone: 'auto',
   })
 
-  const response = await fetch(`https://api.open-meteo.com/v1/tide?${params}`)
-  if (!response.ok) return null
-
-  const data = await response.json()
-  // Open-Meteo may return an array called `heights` with {time, height}
-  const heights = data.heights || data.heights_utc || data.heights_local || []
-  if (!Array.isArray(heights) || heights.length === 0) return null
-
-  let max = heights[0]
-  let min = heights[0]
-  for (const h of heights) {
-    const value = Number(h.height ?? h.value ?? h[1] ?? NaN)
-    if (Number.isFinite(value)) {
-      if (value > Number(max.height ?? max.value ?? max[1] ?? -Infinity)) max = h
-      if (value < Number(min.height ?? min.value ?? min[1] ?? Infinity)) min = h
-    }
-  }
-
-  const parse = (item) => ({ time: item.time || item[0], height: Number(item.height ?? item.value ?? item[1]) })
   try {
-    return { high: parse(max), low: parse(min) }
+    const response = await fetch(`/api/tides/v1/tide?${params}`)
+    if (!response.ok) return null
+
+    const data = await response.json()
+    const heights = data.heights || data.heights_utc || data.heights_local || data.heights || []
+    if (!Array.isArray(heights) || heights.length === 0) return null
+
+    let max = heights[0]
+    let min = heights[0]
+    for (const h of heights) {
+      const value = Number(h.height ?? h.value ?? h[1] ?? NaN)
+      if (Number.isFinite(value)) {
+        if (value > Number(max.height ?? max.value ?? max[1] ?? -Infinity)) max = h
+        if (value < Number(min.height ?? min.value ?? min[1] ?? Infinity)) min = h
+      }
+    }
+
+    const parse = (item) => ({ time: item.time || item[0], height: Number(item.height ?? item.value ?? item[1]) })
+    try {
+      return { high: parse(max), low: parse(min) }
+    } catch (e) {
+      return null
+    }
   } catch (e) {
     return null
   }
