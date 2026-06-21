@@ -5,11 +5,34 @@ export function getBrowserLocation() {
       return
     }
 
+    // Geolocation only works in secure contexts (HTTPS or localhost).
+    // Provide a clear error so callers can fallback to an IP-based lookup if desired.
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      reject(new Error('Geolocation requires a secure context (HTTPS).'))
+      return
+    }
+
+    // If permissions API reports 'denied', fail fast with a helpful message.
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        navigator.permissions.query({ name: 'geolocation' }).then((p) => {
+          if (p.state === 'denied') {
+            reject(new Error('Location access was denied. Allow location in your browser settings.'))
+            return
+          }
+          // If not denied, continue to request location below.
+        })
+      } catch (e) {
+        // swallow and continue to request geolocation — older browsers may throw
+      }
+    }
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         resolve({
           lat: position.coords.latitude,
           lon: position.coords.longitude,
+          source: 'gps',
         })
       },
       (error) => {
@@ -23,6 +46,48 @@ export function getBrowserLocation() {
       { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 },
     )
   })
+}
+
+// Fallback: fetch an approximate location based on the client's IP address.
+// This is used when browser geolocation is unavailable (e.g., insecure context or denied).
+export async function fetchIpLocation() {
+  // Use a public IP geolocation service that supports HTTPS. ipapi.co is simple and free
+  // for basic use; consider replacing with your own backend or paid provider for
+  // production/volume usage.
+  try {
+  const res = await fetch('https://ipapi.co/json/')
+    if (!res.ok) throw new Error('IP lookup failed')
+    const data = await res.json()
+    if (!data || !data.latitude || !data.longitude) throw new Error('IP lookup returned no coords')
+  return { lat: Number(data.latitude), lon: Number(data.longitude), source: 'ip' }
+  } catch (e) {
+    // Try an alternate provider as a second chance
+    try {
+  const r2 = await fetch('https://ipwhois.app/json/')
+      if (!r2.ok) throw new Error('IP lookup failed')
+      const d2 = await r2.json()
+      if (!d2 || !d2.latitude || !d2.longitude) throw new Error('IP lookup returned no coords')
+  return { lat: Number(d2.latitude), lon: Number(d2.longitude), source: 'ip' }
+    } catch (e2) {
+      throw new Error('Could not determine location from IP')
+    }
+  }
+}
+
+// Try high-quality browser geolocation first, then fall back to IP-based lookup.
+export async function getLocationWithFallback() {
+  try {
+    return await getBrowserLocation()
+  } catch (e) {
+    // If user denied or secure context prevents geolocation, try IP-based lookup.
+    try {
+      return await fetchIpLocation()
+    } catch (ipErr) {
+      // rethrow original browser error if IP fallback also fails so callers get the more
+      // actionable browser message (e.g., permission denied).
+      throw e
+    }
+  }
 }
 
 function parsePlace(data) {

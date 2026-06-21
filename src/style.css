@@ -67,6 +67,12 @@ h2 {
   color: #94a3b8;
 }
 
+.location-source {
+  margin-left: 0.5rem;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
 .header-main {
   flex: 1;
   min-width: 0;

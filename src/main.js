@@ -1,5 +1,5 @@
 import './style.css'
-import { getBrowserLocation, reverseGeocode, searchLocation } from './location.js'
+import { getBrowserLocation, getLocationWithFallback, reverseGeocode, searchLocation } from './location.js'
 import { fetchWeather, formatForecastDay, weatherIcon, fetchTides } from './weather.js'
 import { fetchLocalNews, formatNewsDate } from './news.js'
 
@@ -14,7 +14,7 @@ function renderShell() {
         <div class="header-main">
           <p class="eyebrow">Local dashboard</p>
           <h1 id="location-title">hello Olivia</h1>
-          <p id="location-subtitle" class="subtitle"></p>
+          <p id="location-subtitle" class="subtitle"><span id="location-label"></span><span id="location-source" class="location-source" aria-hidden="true"></span></p>
           <form id="location-form" class="location-form hidden" hidden>
             <label class="location-label" for="location-input">Enter a city or place</label>
             <div class="location-row">
@@ -222,7 +222,7 @@ async function loadDashboard({ mode = 'auto', query = '' } = {}) {
       showLocationForm(false)
     } else if (mode === 'geo') {
       setStatus('Detecting your location…')
-      const coords = await getBrowserLocation()
+      const coords = await getLocationWithFallback()
       lat = coords.lat
       lon = coords.lon
       place = await reverseGeocode(lat, lon)
@@ -231,7 +231,7 @@ async function loadDashboard({ mode = 'auto', query = '' } = {}) {
     } else {
       setStatus('Detecting your location…')
       try {
-        const coords = await getBrowserLocation()
+        const coords = await getLocationWithFallback()
         lat = coords.lat
         lon = coords.lon
         place = await reverseGeocode(lat, lon)
@@ -245,13 +245,30 @@ async function loadDashboard({ mode = 'auto', query = '' } = {}) {
     }
 
     locationTitle.textContent = place.city
-    locationSubtitle.textContent = place.label
+    const labelEl = document.querySelector('#location-label')
+    const sourceEl = document.querySelector('#location-source')
+    if (labelEl) labelEl.textContent = place.label
+    if (sourceEl) sourceEl.textContent = ''
+
+    // If the coords object included a source flag, show an indicator when using IP fallback.
+    if (typeof activeLocation === 'object') {
+      // activeLocation isn't set yet, so examine coords/place flow: we set activeLocation below.
+    }
     setStatus('')
 
     activeLocation =
       mode === 'manual'
         ? { mode: 'manual', query, lat, lon }
         : { mode: 'geo', lat, lon }
+
+    // Determine and display the source indicator. If the place object doesn't include
+    // a source, the coords variable may include it — check both.
+    const coordsSource = (typeof coords !== 'undefined' && coords?.source) || null
+    const source = coordsSource || null
+    if (source === 'ip') {
+      const sourceEl2 = document.querySelector('#location-source')
+      if (sourceEl2) sourceEl2.textContent = ' · approximate location'
+    }
 
     const [weather, news] = await Promise.all([
       fetchWeather(lat, lon),
